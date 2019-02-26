@@ -1,0 +1,81 @@
+body {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 12px;
+}
+
+td a {
+	color: inherit !important;
+  text-decoration: underline !important;
+}
+td a:hover {
+  cursor: pointer !important;
+}
+
+tr:not(.is-empty) :hover {
+  cursor: pointer;
+}
+
+tr.is-danger {
+  color: #fff;
+  background-color: #b90018c4 !important;
+}
+tr.is-info {
+  color: #fff;
+  background-color: #209cee !important;
+}
+
+button > span {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+[v-cloak] {
+  display: none;
+}
+
+.hero .title {
+  font-family: Helvetica;
+}
+
+.last-updated {
+  float: right;
+  margin: 2em 0 -1em;
+}
+
+.media-content {
+  font-size: 1.1em;
+}
+
+.table td, .table th {
+  vertical-align: middle;
+}
+
+.pagination {
+  margin: 1rem 0 !important;
+}
+.pagination .pagination-next, .pagination .pagination-previous {
+  display: none;
+}
+
+.detail-container .table {
+  background-color: inherit;
+}
+
+.filters {
+  margin: .5rem 0;
+}
+.filters .control {
+  margin-bottom: .5rem;
+}
+.filters button {
+  width: 100%;
+}
+
+#container {
+  padding: 1rem;
+}
+
+#nav {
+  margin-bottom: 1rem;
+}

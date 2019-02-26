@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+		
+		<title>Tim FTTC Database</title>
+		
+		<link rel="stylesheet" href="https://unpkg.com/buefy/dist/buefy.min.css">
+		<link rel="stylesheet" href="//cdn.materialdesignicons.com/2.5.94/css/materialdesignicons.min.css">
+		<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+		
+		<link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet"> 
+
+		<link rel="stylesheet" href="css/style.css">
+	</head>
+	<body>
+		<div id="app">
+			<b-loading
+				is-full-page
+				:active="isLoading">
+			</b-loading>
+
+			<section class="hero is-primary" v-cloak>
+				<div class="hero-body">
+					<div class="container">
+						<p class="title">Tim FTTC Database</p>
+						<p class="subtitle">Armadi e centrali TI predisposti a tecnologia FTTC, raccolti dal portale wholesale.</p>
+					</div>
+					<p class="last-updated is-size-6">Ultimo aggiornamento: {{ cats[query.cat].lastUpdated }}</p>
+				</div>
+			</section>
+
+			<div id="container" v-cloak>
+		    	<div id="nav" class="tabs is-centered is-boxed">
+					<ul>
+						<li v-for="(c, i) in cats" :class="{ 'is-active': query.cat == i }">
+							<a @click="query.cat = i">
+								<b-icon pack="fas" :icon="catIcons[i]"></b-icon>
+								<span>{{ c.name.toUpperCase() }}S <b-tag rounded>{{ query.cat == i ? rowsCount : c.numItems }}</b-tag></span>
+							</a>
+						</li>
+					</ul>
+		    	</div>
+
+		    	<div id="content">
+		    		<b-field class="filters" grouped group-multiline>
+			            <p class="control is-expanded">
+				            <button @click="fetchCollection" v-bind:class="{ 'is-loading': isBackendFetching == query.cat }" v-bind:disabled="isBackendFetching == query.cat" class="button is-warning">
+				            	<b-icon pack="fas" icon="download"></b-icon>
+				            	<span>Force fetch <b>{{ cats[query.cat].name.toUpperCase() }}S</b></span>
+				            </button>
+			            </p>
+			            <p class="control is-expanded is-hidden-touch">
+				            <button @click="resetFilters" class="button is-outlined">
+				            	<b-icon pack="fas" icon="sync-alt"></b-icon>
+				            	<span>Clear Filters</span>
+				            </button>
+			            </p>
+			            <p class="control is-expanded">
+				            <button @click="deleteCollection" class="button is-danger">
+				            	<b-icon pack="far" icon="trash-alt"></b-icon>
+				            	<span>Delete entire collection <b>{{ cats[query.cat].name.toUpperCase() }}S</b></span>
+				            </button>
+			        	</p>
+		        	</b-field>
+		        	<b-field class="filters is-hidden-desktop">
+    		        	<p class="control is-expanded is-hidden-desktop">
+    			            <button @click="resetFilters" class="button is-outlined">
+    			            	<b-icon pack="fas" icon="sync-alt"></b-icon>
+    			            	<span>Clear Filters</span>
+    			            </button>
+    		            </p>
+		            </b-field>
+					<b-field class="filters" grouped group-multiline>
+		            	<b-select placeholder="Region" icon-pack="fas" icon="map-marked-alt" v-model="query.region" @input="filter" expanded>
+		            		<option :value="null"></option>
+							<option v-for="r in regions">{{ r }}</option>
+			            </b-select>
+	            		<b-input type="search" placeholder="Municipality" icon-pack="fas" icon="search" v-model="query.municipality" @keyup.native="filterD" expanded><i class="far fa-frown-open has-text-grey-lighter"></i></b-input>
+	            		<b-input type="search" placeholder="CLLI Centrale" icon-pack="fas" icon="search" v-model="query.nodeClli" @keyup.native="filterD" expanded></b-input>
+	            		<b-input type="search" placeholder="ID ONU" icon-pack="fas" icon="search" v-model="query.onuId" @keyup.native="filterD" expanded></b-input>
+		            	<b-select v-model="query.type" @input="filter" expanded>
+							<option v-for="(f, i) in types" :value="i">{{ f.toUpperCase() }}</option>
+			            </b-select>
+						<b-select v-model="query.limit" @input="filter" expanded>
+							<option v-for="(f, i) in limits" :value="limits[i]">{{ f }} per page</option>
+			            </b-select>
+		            </b-field>
+
+		            <b-pagination
+		            	class="is-hidden-desktop"
+			        	v-if="!isLoading && rowsCount > 0"
+        	            order="is-centered"
+        	            
+        	            :total="rowsCount"
+        	            :per-page="query.limit"
+        	            :current.sync="query.page"
+        	            @change="loadPage">
+        	        </b-pagination>
+
+					<b-table
+						v-if="!isLoading && query.cat == 0"
+			            :data="rows"
+			            :loading="isLoading"
+			            :row-class="row => row.isChanged && 'is-danger' || row.isNew && 'is-info'"
+			            narrowed
+			            hoverable
+			            selectable
+			            @select="selectRow"
+
+			            detailed
+                        detail-key="onuId"
+                        :show-detail-icon="false"
+                        :opened-detailed="openedRows">
+			            <template slot-scope="props">
+			                <b-table-column field="onuId" label="ID ONU">{{ props.row.onuClli }} <b-tag type="is-warning" :title="props.row.onuId">{{ props.row.onuId.split('_').pop() }}</b-tag></b-table-column>
+			                <b-table-column field="region" label="Regione" sortable><a @click="loadRegion(props.row.region)">{{ props.row.region }}</a></b-table-column>
+			                <b-table-column field="municipality" label="Comune" sortable><a @click="loadMunicipality(props.row.municipality)">{{ props.row.municipality }}</a></b-table-column>
+			                <b-table-column field="nodeClli" label="CLLI Centrale" sortable><a @click="getNode(props.row.nodeClli)"><b>{{ props.row.nodeClli }}</b></a></b-table-column>
+			                <b-table-column field="nodeName" label="Nome Centrale" sortable>{{ props.row.nodeName }}</b-table-column>
+			                <b-table-column field="onuType" label="Tipologia" sortable>{{ props.row.onuType }}</b-table-column>
+			                <b-table-column field="speed" label="Velocità" sortable><b-tag rounded :type="speedClasses[props.row.revisions[0].speed]">{{ props.row.revisions[0].speed }}</b-tag></b-table-column>
+			                <b-table-column field="status" label="Stato" sortable><b-tag rounded :type="statusClasses[props.row.revisions[0].status]"> {{ props.row.revisions[0].status }}</b-tag></b-table-column>
+			                <b-table-column field="activationDate" label="Attivazione" sortable>{{ props.row.revisions[0].activationDate }}</b-table-column>
+			                <b-table-column field="planningDate" label="Pianificazione" sortable>{{ props.row.revisions[0].planningDate }}</b-table-column>
+			                <b-table-column field="notes" label="Note" sortable>{{ props.row.revisions[0].notes }}</b-table-column>
+			            </template>
+			            <template slot="detail" slot-scope="props">
+			            	<b-table
+			            		:data="props.row.revisions"
+			            		narrowed
+			            		hoverable>
+			            		<template slot-scope="props">
+			            			<b-table-column field="revisionDate" label="📆 Data Revisione">{{ props.row.date }}</b-table-column>
+			            			<b-table-column field="speed" label="⚡ Velocità"><b-tag rounded :type="speedClasses[props.row.speed]">{{ props.row.speed }}</b-tag></b-table-column>
+			            			<b-table-column field="status" label="🚦 Stato"><b-tag rounded :type="statusClasses[props.row.status]"> {{ props.row.status }}</b-tag></b-table-column>
+			            			<b-table-column field="activationDate" label="📆 Attivazione">{{ props.row.activationDate }}</b-table-column>
+			            			<b-table-column field="planningDate" label="📆 Pianificazione">{{ props.row.planningDate }}</b-table-column>
+			            			<b-table-column field="notes" label="📝 Note">{{ props.row.notes }}</b-table-column>
+			            		</template>
+		            		</b-table>
+                        </template>
+                        <template slot="empty">
+                        	<section class="container has-text-centered" style="padding: 2rem">
+	                        	<i class="far fa-frown-open has-text-grey-lighter" style="font-size: 12rem"></i>
+	                        	<p class="has-text-grey-light" style="font-size: 1.2rem; margin: 1em">No results matching filters</p>
+                        	</section>
+                        </template>
+			        </b-table>
+
+					<b-table
+						v-if="!isLoading && query.cat == 1"
+			            :data="rows"
+			            :loading="isLoading"
+			            :row-class="row => row.isChanged && 'is-danger' || row.isNew && 'is-info'"
+			            narrowed
+			            hoverable
+			            selectable
+			            @select="selectRow"
+
+			            detailed
+                        detail-key="nodeClli"
+                        :show-detail-icon="false"
+                        :opened-detailed="openedRows">
+			            <template slot-scope="props">
+			                <b-table-column field="nodeClli" label="Node CLLI" sortable><b>{{ props.row.nodeClli }}</b></b-table-column>
+			                <b-table-column field="nodeName" label="Node Name" sortable>{{ props.row.nodeName }}</b-table-column>
+			                <b-table-column field="region" label="Region 🗺️" sortable><a @click="loadRegion(props.row.region)">{{ props.row.region }}</a></b-table-column>
+			                <b-table-column field="district" label="District" sortable>{{ props.row.district }}</b-table-column>
+			                <b-table-column field="municipality" label="Municipality 🏛️" sortable><a @click="loadMunicipality(props.row.municipality)">{{ props.row.municipality }}</a></b-table-column>
+			                <b-table-column field="feederClli" label="Feeder CLLI" sortable>{{ props.row.feederClli }}</b-table-column>
+			                <b-table-column field="feederName" label="Feeder Name" sortable>{{ props.row.feederName }}</b-table-column>
+			                <b-table-column field="macroAreaName" label="Macro Area Name" sortable>{{ props.row.macroAreaName }}</b-table-column>
+			                <b-table-column field="vula1Gbit" label="VULA 1Gbit ⚡" sortable>{{ props.row.revisions[0].vula1Gbit }}</b-table-column>
+			                <b-table-column field="vula10Gbit" label="VULA 10Gbit ⚡" sortable>{{ props.row.revisions[0].vula10Gbit }}</b-table-column>
+			                <b-table-column field="variationState" label="Variation State ❓" sortable>{{ props.row.revisions[0].variationState }}</b-table-column>
+			                <b-table-column field="activationDate" label="Activation 📆" sortable>{{ props.row.revisions[0].activationDate }}</b-table-column>
+			                <b-table-column field="planningDate" label="Planning 📆" sortable>{{ props.row.revisions[0].planningDate }}</b-table-column>
+			                <b-table-column field="notes" label="Notes 📝" sortable>{{ props.row.revisions[0].notes }}</b-table-column>
+			            </template>
+			            <template slot="detail" slot-scope="props">
+			            	<b-table
+			            		:data="props.row.revisions"
+			            		narrowed
+			            		hoverable>
+			            		<template slot-scope="props">
+			            			<b-table-column field="revisionDate" label="📆 Data Revisione">{{ props.row.date }}</b-table-column>
+			            			<b-table-column field="vula1Gbit" label="⚡ VULA 1Gbit">{{ props.row.vula1Gbit }}</b-table-column>
+			            			<b-table-column field="vula10Gbit" label="⚡ VULA 10Gbit">{{ props.row.vula10Gbit }}</b-table-column>
+			            			<b-table-column field="variationState" label="🚦 Variation State">{{ props.row.variationState }}</b-table-column>
+			            			<b-table-column field="activationDate" label="📆 Activation">{{ props.row.activationDate }}</b-table-column>
+			            			<b-table-column field="planningDate" label="📆 Planning">{{ props.row.planningDate }}</b-table-column>
+			            			<b-table-column field="notes" label="📝 Notes">{{ props.row.notes }}</b-table-column>
+			            		</template>
+		            		</b-table>
+                        </template>
+			            <template slot="empty">
+                        	<section class="container has-text-centered" style="padding: 2rem">
+	                        	<i class="far fa-frown-open has-text-grey-lighter" style="font-size: 12rem"></i>
+	                        	<p class="has-text-grey-light" style="font-size: 1.2rem; margin: 1em">No results matching filters</p>
+                        	</section>
+                        </template>
+			        </b-table>
+
+			        <b-pagination
+			        	v-if="!isLoading && rowsCount > 0"
+        	            order="is-centered"
+        	            
+        	            :total="rowsCount"
+        	            :per-page="query.limit"
+        	            :current.sync="query.page"
+        	            @change="loadPage">
+        	        </b-pagination>
+		    	</div>
+			</div>
+		</div>
+
+		<script src="https://unpkg.com/vue/dist/vue.min.js"></script>
+		<script src="https://unpkg.com/buefy/dist/buefy.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/superagent/4.1.0/superagent.min.js"></script>
+				
+		<script type="text/javascript">
+			// https://gist.github.com/nmsdvid/8807205#gistcomment-2681474
+			const debounce = (a,b=300,c)=>(...d)=>clearTimeout(c,c=setTimeout(a,b,...d));
+
+			Vue.use(Buefy, {
+				defaultIconPack: "far"
+			});
+
+			var app = new Vue({
+				el: '#app',
+				data: {
+					query: {
+						cat: 0,
+						type: 0,
+						region: '',
+						municipality: '',
+						nodeClli: '',
+						onuId: '',
+						limit: 25,
+						page: 1
+					},
+
+					rows: [],
+					rowsCount: 0,
+					isBackendFetching: null,
+					isLoading: false,
+
+					cats: [],
+					catIcons: ['server', 'building'],
+
+					regions: [],
+					limits: [10, 25, 50, 100],
+					types: ['all', 'new', 'changed'],
+
+					speedClasses: { '100M': 'is-info', '200M': 'is-primary', 'Upgrade 200M': 'is-warning', 'Mancato Upgrade': 'is-danger' },
+					statusClasses: { 'Attivo': 'is-success', 'Pianificato': 'is-info', 'Saturo': 'is-warning', 'Sospeso': 'is-danger' },
+
+					openedRows: []
+				},
+				computed: {
+					cat() {
+						return this.query.cat;
+					},
+					detailKey() {
+						return this.query.cat == 0 ? 'onuId' : 'nodeClli';
+					}
+				},
+				watch: {
+					cat(val) {
+						this.resetFilters();
+						this.getRegions();
+						this.load();
+					},
+					query: {
+						handler: (val) => { localStorage.setItem('query', JSON.stringify(val)); },
+						deep: true
+					}
+				},
+				created() {
+					this.filterD = debounce(this.filter);
+				},
+				mounted() {
+					this.loadLocalStorage();
+
+					this.getCats();
+					this.getRegions();
+					this.load();
+				},
+				methods: {
+					loadLocalStorage() {
+						// Retrieve the saved query from local storage and sanitize it
+						let savedQuery = {};
+						try {
+							savedQuery = JSON.parse(localStorage.getItem('query')) || this.query;
+					    } catch (e) { }
+						this.query.cat = savedQuery.cat || 0;
+						this.query.type = savedQuery.type || 0;
+						this.query.region = savedQuery.region || '';
+						this.query.municipality = savedQuery.municipality || '';
+						this.query.nodeClli = savedQuery.nodeClli || '';
+						this.query.onuId = savedQuery.onuId || '';
+						this.query.limit = savedQuery.limit || 25;
+						this.query.page = savedQuery.page || 1;
+						localStorage.setItem('query', JSON.stringify(this.query));
+					},
+					selectRow(row) {
+						let rowId = row[this.detailKey];
+						if (this.openedRows.includes(rowId))
+							this.openedRows = this.openedRows.filter(i => i != rowId);
+						else
+							this.openedRows.push(rowId);
+                    },
+                    resetFilters() {
+                    	this.query.type = 0;
+                    	this.query.region = '';
+                    	this.query.municipality = '';
+                    	this.query.nodeClli = '';
+                    	this.query.onuId = '';
+                    	this.query.page = 1;
+
+                    	this.openedRows = [];
+
+                    	this.load();
+                    },
+					handleError(err, res) {
+						this.isBackendFetching = null;
+						this.$dialog.alert({
+						    title: 'An error occurred',
+						    message: err.status ? 'Status code: ' + err.status + '\n\n' + JSON.stringify(res.body) : 'Network error',
+						    type: 'is-danger',
+						    hasIcon: true,
+						    icon: 'exclamation-triangle',
+						    iconPack: 'fas'
+						});
+					},
+					getCats() {
+						superagent
+							.get('/fttc/cats')
+							.end((err, res) => {
+								if (err)
+									return this.handleError(err, res);
+								this.cats = res.body;
+						});
+					},
+					getRegions() {
+						superagent
+							.get('/fttc/regions')
+							.query(this.query)
+							.end((err, res) => {
+								if (err)
+									return this.handleError(err, res);
+								this.regions = res.body;
+						});
+					},
+					getNode(nodeClli) {
+						this.query.cat = 1;
+						this.query.nodeClli = nodeClli;
+						this.load();
+					},
+					loadRegion(region) {
+						this.query.region = region;
+						this.load();
+					},
+					loadMunicipality(municipality) {
+						this.query.municipality = municipality;
+						this.load();
+					},
+					filter() {
+						this.query.page = 1;
+						this.load();
+					},
+					loadPage(page) {
+						if (page)
+							this.query.page = page;
+						else
+							this.query.page = 1;
+
+						this.load();
+					},
+					load() {
+						if (this.isLoading)
+							return;
+
+						window.scrollTo(0, 0);
+
+						this.isLoading = true;
+						
+						superagent
+							.get('/fttc')
+							.query(this.query)
+							.end((err, res) => {
+								if (err)
+									return this.handleError(err, res);
+
+								this.rows = res.body;
+								
+								if (res.headers['content-range'])
+									this.rowsCount = +res.headers['content-range'].split('/')[1];
+								else
+									this.rowsCount = this.rows.length;
+
+								this.isLoading = false;
+						});
+					},
+					fetchCollection() {
+						if (this.isBackendFetching)
+							return;
+
+						this.$dialog.confirm({
+						    title: 'Fetch collection',
+						    message: 'Do you really want to fetch this collection manually?<br><b>Note</b>: the server already checks periodically for new data.',
+						    confirmText: 'Yes, fetch ' + this.cats[this.query.cat].name.toUpperCase() + 'S',
+						    type: 'is-warning',
+						    hasIcon: true,
+						    icon: 'exclamation-triangle',
+						    iconPack: 'fas',
+						    onConfirm: () => {
+								this.isBackendFetching = this.query.cat;
+								superagent
+									.get('/fetch')
+									.query(this.query)
+									.end((err, res) => {
+										if (err)
+											return this.handleError(err, res);
+
+										this.$dialog.alert({
+										    title: 'Fetch result',
+										    message: res.text,
+										    type: 'is-info',
+										    hasIcon: true,
+										    icon: 'info-circle',
+										    iconPack: 'fas'
+										});
+
+										this.isBackendFetching = null;
+										this.load();
+								});
+							}
+						});
+					},
+					deleteCollection() {
+		                this.$dialog.confirm({
+		                    title: 'Delete collection',
+		                    message: 'Are you sure you want to delete the <b>ENTIRE COLLECTION</b>? This action cannot be undone.',
+		                    confirmText: 'Yes, delete ' + this.cats[this.query.cat].name.toUpperCase() + 'S',
+		                    type: 'is-danger',
+		                    hasIcon: true,
+		                    icon: 'exclamation-circle',
+		                    iconPack: 'fas',
+		                    onConfirm: () => superagent
+								.delete('/fttc')
+								.query(this.query)
+								.end((err, res) => {
+									if (err)
+										return this.handleError(err, res);
+									this.$toast.open('Collection ' + this.cats[this.query.cat].name.toUpperCase() + ' deleted successfully')
+									this.load();
+							})
+		                });
+		            }
+				}
+			});
+		</script>
+	</body>
+</html>

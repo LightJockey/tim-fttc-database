@@ -1,0 +1,28 @@
+{
+  "name": "fttc-database",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node index.js | bistre"
+  },
+  "author": "LightJockey",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "bistre": "^1.0.1"
+  },
+  "dependencies": {
+    "async": "^2.5.0",
+    "bole": "^3.0.2",
+    "byline": "^5.0.0",
+    "extract-zip": "^1.6.5",
+    "hapi": "^16.5.2",
+    "inert": "^4.2.1",
+    "moment": "^2.24.0",
+    "mongojs": "^2.4.1",
+    "needle": "^2.0.0",
+    "telegraf": "^3.27.1",
+    "telegraf-command-parts": "^1.0.3"
+  }
+}

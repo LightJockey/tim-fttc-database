@@ -1,0 +1,15 @@
+{
+	"db": {
+		"connectionString": ""
+	},
+	"server": {
+		"port": 8484
+	},
+	"wholesale": {
+		"fetch_interval": 3600
+	},
+	"telegram": {
+		"token": "",
+		"site_link": "http://localhost:8484"
+	}
+}
