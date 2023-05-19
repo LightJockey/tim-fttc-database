@@ -1,4 +1,4 @@
-fttc-database
+tim-fttc-database
 ==============
 
 App nodejs per monitorare e tracciare in modo automatico i cambiamenti ai cabinet e alle centrali FTTC di Tim.
